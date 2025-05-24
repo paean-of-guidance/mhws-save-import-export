@@ -1,3 +1,5 @@
+local VERSION = "1.1.0-20250524"
+
 local ser = require("save_import_export.ser")
 local de = require("save_import_export.de")
 local ui = require("save_import_export.ui")
@@ -151,7 +153,6 @@ local function draw_select_save_data()
         end
     end
 
-    imgui.set_next_item_width(200)
     local changed, value = imgui.combo("Select Save #" .. tostring(g_selected_save_index), g_selected_save_index + 1,
         ui_save_combo)
     if changed and ui_save_combo[value] ~= "" then
@@ -165,7 +166,7 @@ re.on_draw_ui(function()
     end
 
     imgui.text("Author: Eigeen")
-    imgui.text("Version: 1.0.0")
+    imgui.text("Version: " .. VERSION)
     imgui.text("Any errors or suggestions,")
     imgui.text("check updates, or post in Nexus or GitHub.")
     imgui.text_colored(_t("Warning: Backup save data before importing!!!"), 0xff0080ff)
