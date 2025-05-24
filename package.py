@@ -1,6 +1,7 @@
 import os
 import shutil
 from dotenv import load_dotenv
+import zipfile
 
 
 def zip_package(source_dir="reframework", output_filename=None):
@@ -19,6 +20,11 @@ def zip_package(source_dir="reframework", output_filename=None):
     shutil.make_archive(
         base_name=output_path[:-4], format="zip", root_dir=".", base_dir=source_dir
     )
+
+    modinfo_path = "modinfo.ini"
+    if os.path.isfile(modinfo_path):
+        with zipfile.ZipFile(output_path, "a") as zipf:
+            zipf.write(modinfo_path, arcname="modinfo.ini")
 
 
 if __name__ == "__main__":
