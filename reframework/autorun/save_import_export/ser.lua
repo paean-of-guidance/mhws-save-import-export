@@ -24,15 +24,7 @@ local ValueSerializers = {
     end,
     -- ["ace.Bitset"] = value_direct_save,
     ["via.rds.Mandrake"] = function(value)
-        -- try to decode, if failed, use original value
-        local ret = {
-            m = value.m,
-            v = value.v
-        }
-        pcall(function()
-            ret = value:decode()
-        end)
-        return ret
+        return math.floor(value.v / value.m)
     end
 }
 

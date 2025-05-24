@@ -1,44 +1,37 @@
 local f_Guid_Parse = sdk.find_type_definition("System.Guid"):get_method("Parse(System.String)")
 local f_Mandrake_encode = sdk.find_type_definition("via.rds.Mandrake"):get_method("encode(System.Int64)")
 
--- This classification might be very inaccurate
-local IMPORT_OPTION_CATEGORIES = {
-    basic_data = {"Active", "LoadingPlLayout", "PlayStartDateTime", "PlayTime", "WorldTimeRealSecond", "_BasicData"},
-    inventory = {"_CustomShortcutMySet", "_Item", "_ItemMySet", "_ItemRecipe"},
-    character_edit = {"_CharacterEdit_Hunter", "_CharacterEdit_NPC", "_CharacterEdit_Palico", "_CharacterEdit_Seikret"},
-    communication = {"_Communication"},
-    progress = {"_Barter", "_Camp", "_Collection", "_DeliveryBounty", "_Dining", "_Discovery", "_EnemyReport",
-                "_Environment", "_Environment_Other", "_Equip", "_Event", "_ExField", "_FieldIntro",
-                "_InstantQuestHistory", "_LargeWorkshop", "_Map", "_Mission", "_Otomo", "_Player", "_Pugee", "_Quest",
-                "_Ship", "_Story"},
-    records = {"_RankingAnimalFish", "_RankingScore"},
-    animal = {"_Animal"},
-    settings = {"_LobbySearchSetting", "_SortModes", "_StartMenu", "_SubOrder", "_TempBanSessions", "_Tutorial"}
-}
+local g_path_stack = {}
 
 local ValueWriters = {
     ["via.vec3"] = function(obj, field, value)
-        obj[field].x = value.x
-        obj[field].y = value.y
-        obj[field].z = value.z
+        local vec3_obj = obj[field]
+        vec3_obj.x = value.x
+        vec3_obj.y = value.y
+        vec3_obj.z = value.z
+        obj[field] = vec3_obj
     end,
     ["via.vec4"] = function(obj, field, value)
-        obj[field].x = value.x
-        obj[field].y = value.y
-        obj[field].z = value.z
-        obj[field].w = value.w
+        local vec4_obj = obj[field]
+        vec4_obj.x = value.x
+        vec4_obj.y = value.y
+        vec4_obj.z = value.z
+        vec4_obj.w = value.w
+        obj[field] = vec4_obj
     end,
     ["System.Guid"] = function(obj, field, value)
         obj[field] = f_Guid_Parse:call(nil, value)
     end,
     ["via.rds.Mandrake"] = function(obj, field, value)
-        -- if decoded, encode it back.
-        if type(value) == "number" or type(value) == "integer" then
-            f_Mandrake_encode:call(obj[field], value)
+        local mandrake_obj = obj[field]
+        if type(value) == "number" then
+            mandrake_obj:set_field("v", math.floor(obj[field].m * value))
         else
-            obj[field].m = value.m
-            obj[field].v = value.v
+            mandrake_obj:set_field("m", value.m)
+            mandrake_obj:set_field("v", value.v)
         end
+        -- ValueType, write the copy back
+        obj[field] = mandrake_obj
     end
 }
 
@@ -52,15 +45,16 @@ local function _deserialize_struct_recursive(object, data, visited)
         if field:is_static() then
             goto continue
         end
-
         local field_name = field:get_name()
         local field_type = field:get_type()
         local field_type_name = field_type:get_full_name()
         local field_data = field:get_data(object)
+        table.insert(g_path_stack, field_name)
 
         -- log.debug(string.format("field_name: %s, field_type: %s", field_name, field_type_name))
 
         if not data[field_name] then
+            table.remove(g_path_stack)
             goto continue
         end
 
@@ -68,6 +62,7 @@ local function _deserialize_struct_recursive(object, data, visited)
             local field_address = field_data:get_address()
             if visited[field_address] then
                 log.debug(string.format("type(%s) at 0x%x already visited, skipping", field_type_name, field_address))
+                table.remove(g_path_stack)
                 goto continue
             end
             visited[field_address] = true
@@ -110,34 +105,98 @@ local function _deserialize_struct_recursive(object, data, visited)
             end
         end
 
+        table.remove(g_path_stack)
         ::continue::
     end
 end
 
-local function deserialize_struct(target, data, import_options)
-    -- -- exclude fields
-    data["HunterId"] = nil
-    data["HunterShortId"] = nil
+local function Array_Difference(a, b)
+    local res = {}
+    local b_values = {}
 
-    if import_options.ungrouped then
-        for category, ok in pairs(import_options) do
-            if not ok then
-                for _, field_name in ipairs(IMPORT_OPTION_CATEGORIES[category]) do
-                    data[field_name] = nil
-                end
-            end
-        end
-    else
-        local new_data = {}
-        for category, ok in pairs(import_options) do
-            if ok then
-                for _, field_name in ipairs(IMPORT_OPTION_CATEGORIES[category]) do
-                    new_data[field_name] = data[field_name]
-                end
-            end
-        end
-        data = new_data
+    -- Create a lookup table for values in b
+    for _, v in ipairs(b) do
+        b_values[v] = true
     end
+
+    -- Check values in a that aren't in b
+    for _, v in ipairs(a) do
+        if not b_values[v] then
+            table.insert(res, v)
+        end
+    end
+
+    return res
+end
+
+local function apply_options(data, options)
+
+    local function process_options(options, data)
+        local new_data = {}
+        -- 用于后续处理Others选项
+        local all_categories = {}
+
+        for _, option in ipairs(options) do
+            if option.categories then
+                for _, category in ipairs(option.categories) do
+                    table.insert(all_categories, category)
+                end
+            elseif option.category then
+                table.insert(all_categories, option.category)
+            end
+
+            if option.enabled then
+                -- others option
+                if option.match_remaining then
+                    local all_keys = {}
+                    for k, _ in pairs(data) do
+                        table.insert(all_keys, k)
+                    end
+                    local remaining = Array_Difference(all_keys, all_categories)
+                    for _, field in ipairs(remaining) do
+                        log.debug("apply remaining field: " .. field)
+                        new_data[field] = data[field]
+                    end
+                elseif option.categories then
+                    -- common option
+                    for _, category in ipairs(option.categories) do
+                        log.debug("apply selected field: " .. category)
+                        new_data[category] = data[category]
+                    end
+                end
+            elseif option.children then
+                -- sub options
+                if option.category then
+                    new_data[option.category] = process_options(option.children, data[option.category])
+                else
+                    -- 不支持Others，否则会出现意外问题
+                    local tmp = process_options(option.children, data)
+                    for k, v in pairs(tmp) do
+                        new_data[k] = v
+                    end
+                end
+            end
+        end
+
+        -- clear empty data
+        for k, v in pairs(new_data) do
+            if type(v) == "table" and next(v) == nil then
+                new_data[k] = nil
+            end
+        end
+
+        return new_data
+    end
+
+    -- 处理所有顶层选项
+    local new_data = process_options(options, data)
+
+    return new_data
+end
+
+local function deserialize_struct(target, data, import_options)
+    -- 应用options过滤
+    data = apply_options(data, import_options)
 
     -- just for debugging
     local keys = {}
@@ -150,10 +209,24 @@ local function deserialize_struct(target, data, import_options)
         log.debug(k)
     end
 
-    local visited = {}
-    return _deserialize_struct_recursive(target, data, visited)
+    log.debug(json.dump_string(data))
+
+    g_path_stack = {}
+
+    local result = {}
+    local ok, msg = pcall(function()
+        local visited = {}
+        result = _deserialize_struct_recursive(target, data, visited)
+    end)
+    if not ok then
+        re.msg("Failed to deserialize struct: " .. tostring(msg) .. "\nPath: " .. table.concat(g_path_stack, "."))
+        error("Failed to deserialize struct: " .. tostring(msg) .. "\nPath: " .. table.concat(g_path_stack, "."))
+    end
+
+    return result
 end
 
 return {
     deserialize_struct = deserialize_struct
 }
+

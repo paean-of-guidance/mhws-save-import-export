@@ -1,7 +1,7 @@
 local ser = require("save_import_export.ser")
 local de = require("save_import_export.de")
-
-local reffs = fs
+local ui = require("save_import_export.ui")
+local I18n = require("save_import_export.i18n")
 
 -- local d_UserSaveParam = sdk.find_type_definition("app.savedata.cUserSaveParam")
 local s_SaveDataManager = sdk.get_managed_singleton("app.SaveDataManager")
@@ -13,32 +13,14 @@ if eglib then
     fs = eglib.fs:new("save_import_export")
 end
 
-local DEFAULT_IMPORT_OPTIONS = {
-    hunter_profile = false,
-    basic_data = true,
-    inventory = true,
-    character_edit = true,
-    communication = true,
-    progress = true,
-    records = true,
-    animal = true,
-    settings = true,
-    ungrouped = true
-}
+-- initialize i18n
+I18n.init("save_import_export.language")
+local _t = I18n.t
 
+local g_selected_save_index = 0
 local g_has_export_task = false
 local g_has_import_task = false
-local g_import_options = {
-    basic_data = true,
-    inventory = true,
-    character_edit = true,
-    communication = true,
-    progress = true,
-    records = true,
-    animal = true,
-    settings = true,
-    ungrouped = true
-}
+local g_refresh_saves_list_once = true
 
 -- utils
 
@@ -51,9 +33,35 @@ local function is_guid(str)
     return str:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") ~= nil
 end
 
+local function deepcopy(orig, seen)
+    seen = seen or {}
+    if seen[orig] then
+        return seen[orig]
+    end
+
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        seen[orig] = copy
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepcopy(orig_key, seen)] = deepcopy(orig_value, seen)
+        end
+        setmetatable(copy, deepcopy(getmetatable(orig), seen))
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
+end
+
+---@return app.savedata.cUserSaveParam
+local function getUserSaveData(index)
+    log.debug("Get user save data #" .. tostring(index))
+    return s_SaveDataManager:getUserSaveData(index)
+end
+
 local function export_save_data()
-    ---@type app.savedata.cUserSaveParam
-    local current_save_data = s_SaveDataManager:getCurrentUserSaveData()
+    local current_save_data = getUserSaveData(g_selected_save_index)
 
     local save_data_map = {}
     if current_save_data and is_guid(current_save_data["HunterId"]) then
@@ -92,8 +100,7 @@ local function export_save_data()
 end
 
 local function import_save_data(import_options)
-    ---@type app.savedata.cUserSaveParam
-    local current_save_data = s_SaveDataManager:getCurrentUserSaveData()
+    local current_save_data = getUserSaveData(g_selected_save_index)
 
     if fs then
         local paths = fs:request_access({
@@ -129,6 +136,29 @@ Please install `eglib` plugin for file system access, or put file in target dire
     end
 end
 
+local ui_save_combo = {"#0", "#1", "#2"}
+
+local function draw_select_save_data()
+    if imgui.button(_t("Refresh Saves List")) or g_refresh_saves_list_once then
+        g_refresh_saves_list_once = false
+        ui_save_combo = {"#0", "#1", "#2"}
+        for i = 0, 2 do
+            local save_data = getUserSaveData(i)
+            if save_data then
+                ui_save_combo[i + 1] = string.format("%s: %s##%d", save_data["_BasicData"]["CharName"],
+                    save_data["HunterShortId"], i)
+            end
+        end
+    end
+
+    imgui.set_next_item_width(200)
+    local changed, value = imgui.combo("Select Save #" .. tostring(g_selected_save_index), g_selected_save_index + 1,
+        ui_save_combo)
+    if changed and ui_save_combo[value] ~= "" then
+        g_selected_save_index = value - 1
+    end
+end
+
 re.on_draw_ui(function()
     if not imgui.tree_node("Save Data Import/Export") then
         return
@@ -138,72 +168,23 @@ re.on_draw_ui(function()
     imgui.text("Version: 1.0.0")
     imgui.text("Any errors or suggestions,")
     imgui.text("check updates, or post in Nexus or GitHub.")
-    imgui.text_colored("Warning: Backup save data before importing!!!", 0xff0080ff)
+    imgui.text_colored(_t("Warning: Backup save data before importing!!!"), 0xff0080ff)
 
-    if imgui.button("Export") then
+    imgui.text("-----")
+    ui.draw_select_language()
+    imgui.text("-----")
+    draw_select_save_data()
+
+    if imgui.button(_t("Export")) then
         -- run real export task in game logic thread, or some methods will throw exceptions.
         g_has_export_task = true
     end
-    if imgui.button("Import") then
+    if imgui.button(_t("Import")) then
         -- run real import task in game logic thread, or some methods will throw exceptions.
         g_has_import_task = true
     end
 
-    local any_changed = false
-    local function CheckBox(label, id)
-        if g_import_options[id] ~= DEFAULT_IMPORT_OPTIONS[id] then
-            label = "*" .. label
-        end
-        local changed, value = imgui.checkbox(label, g_import_options[id])
-        if changed then
-            any_changed = true
-        end
-        g_import_options[id] = value
-    end
-    local function WithTooltip(tooltip, func)
-        imgui.begin_group()
-        func()
-        imgui.end_group()
-        if imgui.is_item_hovered() then
-            imgui.set_tooltip(tooltip)
-        end
-    end
-
-    if imgui.tree_node("Import Options") then
-        imgui.text("Import parts")
-        imgui.text("See save_import_export/de.lua: IMPORT_OPTION_CATEGORIES for details")
-        WithTooltip("Synchronizing the HunterProfile will cause your save to be unable to connect to the online server",
-            function()
-                imgui.begin_disabled()
-                CheckBox("HunterProfile", false)
-                imgui.end_disabled()
-            end)
-        WithTooltip("Hunter, seikret name, points, moneys, etc.", function()
-            CheckBox("BasicData", "basic_data")
-        end)
-        WithTooltip("Items, shortcuts, etc.", function()
-            CheckBox("Inventory", "inventory")
-        end)
-        WithTooltip("Character appearance", function()
-            CheckBox("CharacterEdit", "character_edit")
-        end)
-        WithTooltip("Auto-templates, stamps", function()
-            CheckBox("Communication", "communication")
-        end)
-        WithTooltip("Game play progress", function()
-            CheckBox("Progress", "progress")
-        end)
-        WithTooltip("Ranking data", function()
-            CheckBox("Records", "records")
-        end)
-        WithTooltip("Environment animals", function()
-            CheckBox("Animal", "animal")
-        end)
-        CheckBox("Settings", "settings")
-        CheckBox("Ungrouped", "ungrouped")
-
-        imgui.tree_pop()
-    end
+    ui.draw_import_options()
 
     imgui.tree_pop()
 end)
@@ -215,7 +196,7 @@ sdk.hook(sdk.find_type_definition("app.GUIManager"):get_method("update()"), func
     end
     if g_has_import_task then
         g_has_import_task = false
-        import_save_data(g_import_options)
+        import_save_data(ui.import_options)
     end
 end, function(retval)
 
