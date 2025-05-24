@@ -17,9 +17,7 @@ def zip_package(source_dir="reframework", output_filename=None):
     output_path = os.path.join(dist_dir, output_filename)
 
     shutil.make_archive(
-        base_name=os.path.splitext(output_path)[0],
-        format="zip",
-        root_dir=source_dir,
+        base_name=output_path[:-4], format="zip", root_dir=".", base_dir=source_dir
     )
 
 
