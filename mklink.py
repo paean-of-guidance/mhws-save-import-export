@@ -1,5 +1,6 @@
 import os
 import sys
+from dotenv import load_dotenv
 
 
 def create_links(src_dir, dst_dir):
@@ -31,5 +32,10 @@ def create_links(src_dir, dst_dir):
 
 if __name__ == "__main__":
     src = "reframework/autorun"
-    dst = r"E:\SteamLibrary\steamapps\common\MonsterHunterWilds\reframework\autorun"
+    load_dotenv()
+    dst = os.getenv("MKLINK_DST")
+    if not dst:
+        print("Destination directory not specified in environment variables.")
+        sys.exit(1)
+
     create_links(src, dst)
