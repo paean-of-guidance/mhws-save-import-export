@@ -83,8 +83,8 @@ local g_import_options = {{
     name = "Enemy Report",
     description = "Includes enemy kill count.",
     categories = {"_EnemyReport"},
-    enabled = false,
-    default = false
+    enabled = true,
+    default = true
 }, {
     name = "Records",
     description = "Quest records, ranking data.",
