@@ -1,4 +1,4 @@
-local VERSION = "1.1.0-20250524"
+local VERSION = "1.1.1-20250601"
 
 local ser = require("save_import_export.ser")
 local de = require("save_import_export.de")
