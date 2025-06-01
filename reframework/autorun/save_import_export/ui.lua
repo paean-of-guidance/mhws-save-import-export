@@ -15,7 +15,7 @@ local g_import_options = {{
     enabled = true,
     default = true
 }, {
-    name = "Character Edit",
+    name = "Character Appearance Edit",
     children = {{
         name = "Hunter",
         description = "Appearance of hunter.",
@@ -102,19 +102,16 @@ local g_import_options = {{
         enabled = true,
         default = true
     }, {
-        name = "Counter",
-        children = {{
-            name = "Quest and Weapon",
-            categories = {"_QuestClearCounter"},
-            enabled = true,
-            default = true
-        }, {
-            name = "Others",
-            categories = {"ViewOtherProfileCounter", "_AnimalCapturePerStage", "_AnimalMiniGamePlayNum",
-                          "_FacilityBoostCounter", "_FishCapturePerStage", "_FishMiniGamePlayNum"},
-            enabled = true,
-            default = true
-        }}
+        name = "Quest and Weapon Clear Counter",
+        categories = {"_QuestClearCounter"},
+        enabled = true,
+        default = true
+    }, {
+        name = "Other Counters",
+        categories = {"ViewOtherProfileCounter", "_AnimalCapturePerStage", "_AnimalMiniGamePlayNum",
+                      "_FacilityBoostCounter", "_FishCapturePerStage", "_FishMiniGamePlayNum"},
+        enabled = true,
+        default = true
     }, {
         name = "Medal",
         description = "Achivement medals.",
