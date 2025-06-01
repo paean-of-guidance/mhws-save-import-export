@@ -8,7 +8,7 @@ local utils = require("save_import_export.utils")
 
 -- local d_UserSaveParam = sdk.find_type_definition("app.savedata.cUserSaveParam")
 local s_SaveDataManager = utils.LazyStatic.new(function()
-    sdk.get_managed_singleton("app.SaveDataManager")
+    return sdk.get_managed_singleton("app.SaveDataManager")
 end)
 
 -- sdk.get_managed_singleton("app.SaveDataManager"):getCurrentUserSaveData()
