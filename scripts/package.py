@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import shutil
 from dotenv import load_dotenv
 import zipfile
@@ -28,4 +29,7 @@ def zip_package(source_dir="reframework", output_filename=None):
 
 
 if __name__ == "__main__":
+    # set workdir
+    os.chdir(Path(__file__).parent.parent)
+
     zip_package()

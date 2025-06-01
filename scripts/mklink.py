@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
 
@@ -31,6 +32,9 @@ def create_links(src_dir, dst_dir):
 
 
 if __name__ == "__main__":
+    # set workdir
+    os.chdir(Path(__file__).parent.parent)
+
     src = "reframework/autorun"
     load_dotenv()
     dst = os.getenv("MKLINK_DST")
