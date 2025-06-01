@@ -1,6 +1,10 @@
 local I18n = require("save_import_export.i18n")
 local _t = I18n.t
 
+-- 规则：
+-- 1. 如果只有 children 而没有 category，则该子菜单仅起到显示归类作用，不会影响层级。
+-- 2. 如果有 category 则该菜单会影响层级，children 的分类均在 category 下。
+-- 3. match_remaining 匹配上方未登记的其他 category，因此必须要在最底部。
 local g_import_options = {{
     name = "HunterId (!)",
     description = "Warning: don't check if you don't know what are you doing.\nMay break your save.",

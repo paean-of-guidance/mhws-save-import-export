@@ -131,10 +131,10 @@ end
 
 local function apply_options(data, options)
 
-    local function process_options(options, data)
+    local function process_options(options, data, categories)
         local new_data = {}
         -- 用于后续处理Others选项
-        local all_categories = {}
+        local all_categories = categories
 
         for _, option in ipairs(options) do
             if option.categories then
@@ -167,10 +167,11 @@ local function apply_options(data, options)
             elseif option.children then
                 -- sub options
                 if option.category then
-                    new_data[option.category] = process_options(option.children, data[option.category])
+                    new_data[option.category] = process_options(option.children, data[option.category], {})
                 else
                     -- 不支持Others，否则会出现意外问题
-                    local tmp = process_options(option.children, data)
+                    -- 修复：all_categoriesx向下传递，以收集同级的分类
+                    local tmp = process_options(option.children, data, all_categories)
                     for k, v in pairs(tmp) do
                         new_data[k] = v
                     end
@@ -189,7 +190,7 @@ local function apply_options(data, options)
     end
 
     -- 处理所有顶层选项
-    local new_data = process_options(options, data)
+    local new_data = process_options(options, data, {})
 
     return new_data
 end
