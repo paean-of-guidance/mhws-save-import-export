@@ -4,9 +4,12 @@ local ser = require("save_import_export.ser")
 local de = require("save_import_export.de")
 local ui = require("save_import_export.ui")
 local I18n = require("save_import_export.i18n")
+local utils = require("save_import_export.utils")
 
 -- local d_UserSaveParam = sdk.find_type_definition("app.savedata.cUserSaveParam")
-local s_SaveDataManager = sdk.get_managed_singleton("app.SaveDataManager")
+local s_SaveDataManager = utils.LazyStatic.new(function()
+    sdk.get_managed_singleton("app.SaveDataManager")
+end)
 
 -- sdk.get_managed_singleton("app.SaveDataManager"):getCurrentUserSaveData()
 
@@ -22,7 +25,6 @@ local _t = I18n.t
 local g_selected_save_index = 0
 local g_has_export_task = false
 local g_has_import_task = false
-local g_refresh_saves_list_once = true
 
 -- utils
 
@@ -59,7 +61,7 @@ end
 ---@return app.savedata.cUserSaveParam
 local function getUserSaveData(index)
     log.debug("Get user save data #" .. tostring(index))
-    return s_SaveDataManager:getUserSaveData(index)
+    return s_SaveDataManager:value():getUserSaveData(index)
 end
 
 local function export_save_data()
@@ -141,8 +143,7 @@ end
 local ui_save_combo = {"#0", "#1", "#2"}
 
 local function draw_select_save_data()
-    if imgui.button(_t("Refresh Saves List")) or g_refresh_saves_list_once then
-        g_refresh_saves_list_once = false
+    if imgui.button(_t("Refresh Saves List")) then
         ui_save_combo = {"#0", "#1", "#2"}
         for i = 0, 2 do
             local save_data = getUserSaveData(i)
