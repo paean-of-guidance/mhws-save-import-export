@@ -1,4 +1,4 @@
-local VERSION = "1.1.1-20250601"
+local VERSION = "1.1.2-20250712"
 
 local ser = require("save_import_export.ser")
 local de = require("save_import_export.de")
@@ -68,10 +68,15 @@ local function export_save_data()
     local current_save_data = getUserSaveData(g_selected_save_index)
 
     local save_data_map = {}
-    if current_save_data and is_guid(current_save_data["HunterId"]) then
+    if current_save_data then
         log.debug("----- saving data -----")
+        if not is_guid(current_save_data["HunterId"]) then
+            re.msg(
+                "Warning: Your selected slot has no hunter id.\nEnsure you have selected a valid save.\nIf you are using a offline slot, ignore this message.")
+        end
         save_data_map = ser.serialize_struct(current_save_data)
     else
+        re.msg("Cannot get current save data.")
         return
     end
 
