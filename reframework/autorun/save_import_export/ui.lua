@@ -192,19 +192,28 @@ local g_import_options = {{
     match_remaining = true
 }}
 
-local ISO_TO_LANG_INDEX = {
-    en_US = 1,
-    zh_CN = 2
+local ui_save_combo = {"#0", "#1", "#2"}
+local ui_language_iso = {"en_US", "zh_CN", "ja_JP"}
+local ui_language_desc = {
+    ["en_US"] = "English",
+    ["zh_CN"] = "简体中文",
+    ["ja_JP"] = "日本語訳はNexusmodsユーザーkiyoyasu2025jpによって提供されました。"
 }
 
-local ui_save_combo = {"#0", "#1", "#2"}
-local ui_language_iso = {"en_US", "zh_CN"}
+local ISO_TO_LANG_INDEX = {}
+for i, iso in ipairs(ui_language_iso) do
+    ISO_TO_LANG_INDEX[iso] = i
+end
 
 local function draw_select_language()
     imgui.set_next_item_width(150)
     local changed, value = imgui.combo("Language", ISO_TO_LANG_INDEX[I18n.get_language_iso()] or 1, ui_language_iso)
     if changed then
         I18n.set_language(ui_language_iso[value])
+    end
+
+    if ui_language_desc[ui_language_iso[value]] then
+        imgui.text(ui_language_desc[ui_language_iso[value]])
     end
 end
 
