@@ -1,13 +1,17 @@
 import os
+import re
 from pathlib import Path
 import shutil
 import zipfile
-from dotenv import load_dotenv
 
 
 def zip_package(source_dir="reframework", output_filename=None):
-    load_dotenv()
-    version = os.getenv("VERSION", "0.0.0")
+    # 从modinfo.ini中读取版本号
+    modinfo_path = "modinfo.ini"
+    with open(modinfo_path, "r") as f:
+        content = f.read()
+    version = re.search(r"version=(\d+\.\d+\.\d+)*", content).group(1)
+    
     if output_filename is None:
         output_filename = f"save_import_export-{version}.zip"
     if not os.path.isdir(source_dir):
@@ -22,7 +26,6 @@ def zip_package(source_dir="reframework", output_filename=None):
         base_name=output_path[:-4], format="zip", root_dir=".", base_dir=source_dir
     )
 
-    modinfo_path = "modinfo.ini"
     if os.path.isfile(modinfo_path):
         with zipfile.ZipFile(output_path, "a") as zipf:
             zipf.write(modinfo_path, arcname="modinfo.ini")
